@@ -4,6 +4,58 @@ import {SettingsPluginItem} from '@reskript/settings';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 
+const swcLoader = () => {
+    return {
+        loader: path.join(currentDirectory, 'loader'),
+        options: {
+            sourceMaps: false,
+            emotion: {
+                enabled: true,
+                sourceMap: false,
+                // 此处必须是`true`对应`"always"`
+                // TODO: https://github.com/emotion-js/emotion/issues/2305
+                autoLabel: true,
+            },
+            jsc: {
+                externalHelpers: true,
+                parser: {
+                    syntax: 'typescript',
+                    dynamicImport: true,
+                    decorators: false,
+                    jsx: true,
+                    importAssertions: true,
+                },
+                experimental: {
+                    keepImportAssertions: true,
+                    plugins: [],
+                },
+                transform: {
+                    legacyDecorator: false,
+                    decoratorMetadata: false,
+                    useDefineForClassFields: false,
+                    react: {
+                        importSource: '@emotion/react',
+                        runtime: 'automatic',
+                        throwIfNamespace: true,
+                        development: false,
+                        useBuiltins: true,
+                        refresh: false,
+                    },
+                    optimizer: {
+                        simplify: false,
+                        globals: {
+                            envs: {
+                                NODE_ENV: '"production"',
+                                'skr.features.batch': 'true',
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    };
+};
+
 export default (): SettingsPluginItem => {
     return settings => {
         if (settings.driver !== 'webpack') {
@@ -21,7 +73,6 @@ export default (): SettingsPluginItem => {
                         internals.rules.svg(buildEntry),
                         internals.rules.file(buildEntry),
                         internals.rules.image(buildEntry),
-                        internals.rules.script(buildEntry),
                     ] as const;
                     const builtinRules = await Promise.all(loadingRules);
                     const config = await settings.build.finalize(configIn, buildEntry, internals);
@@ -29,47 +80,16 @@ export default (): SettingsPluginItem => {
                         {
                             test: /\.[jt]sx?$/,
                             include: path.join(currentDirectory, '..', 'src'),
-                            use: [
+                            oneOf: [
                                 {
-                                    loader: path.join(currentDirectory, 'loader'),
-                                    options: {
-                                        jsc: {
-                                            externalHelpers: true,
-                                            parser: {
-                                                syntax: 'typescript',
-                                                dynamicImport: true,
-                                                decorators: false,
-                                                jsx: true,
-                                                importAssertions: true,
-                                            },
-                                            experimental: {
-                                                keepImportAssertions: true,
-                                                plugins: [],
-                                            },
-                                            transform: {
-                                                legacyDecorator: false,
-                                                decoratorMetadata: false,
-                                                useDefineForClassFields: false,
-                                                react: {
-                                                    importSource: '@emotion/react',
-                                                    runtime: 'automatic',
-                                                    throwIfNamespace: true,
-                                                    development: false,
-                                                    useBuiltins: true,
-                                                    refresh: false,
-                                                },
-                                                optimizer: {
-                                                    simplify: false,
-                                                    globals: {
-                                                        envs: {
-                                                            NODE_ENV: '"production"',
-                                                            'skr.features.batch': 'true',
-                                                        },
-                                                    },
-                                                },
-                                            },
-                                        }
-                                    },
+                                    resourceQuery: /worker/,
+                                    use: [
+                                        (await internals.loader('worker', buildEntry))!,
+                                        swcLoader(),
+                                    ],
+                                },
+                                {
+                                    use: [swcLoader()],
                                 },
                             ],
                         },

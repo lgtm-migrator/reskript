@@ -3,7 +3,7 @@ import {fileURLToPath} from 'node:url';
 import injectHtml, {InjectHtmlOptions} from '@reskript/plugin-inject-html';
 import {configure} from '@reskript/settings';
 import qiankun from '@reskript/plugin-qiankun';
-import swc from './swc/plugin';
+import {swc} from '@reskript/plugin-experimental';
 
 const injectOptions: InjectHtmlOptions = {
     headStart: [
@@ -50,6 +50,7 @@ export default configure(
                 },
             },
             finalize: webpackConfig => {
+                webpackConfig.optimization.minimize = false;
                 webpackConfig.optimization.splitChunks = {
                     cacheGroups: {
                         vendors: {
